@@ -97,7 +97,7 @@ tmp102_write_register(tmp102_handle_t h, uint8_t reg, uint16_t val)
 	struct iic_rdwr_data data;
 	struct iic_msg msgs[2] = {
 		{0, IIC_M_WR, 1, &reg},
-		{0, IIC_M_RD, 2, bytes},
+		{0, IIC_M_WR, 2, bytes},
 	};
 
 	if (h == TMP102_INVALID_HANDLE)
