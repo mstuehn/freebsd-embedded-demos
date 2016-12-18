@@ -47,7 +47,7 @@ tmp102_open(const char *i2cdev, int addr)
 	if (h == NULL)
 		return (TMP102_INVALID_HANDLE);
 
-	h->addr = addr;
+	h->addr = (addr << 1);
 	h->fd = fd;
 
 	return (h);
