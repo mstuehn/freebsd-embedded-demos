@@ -87,6 +87,11 @@ ssd1306_spi_transfer(ssd1306_handle_t h, uint8_t *data, int len)
 {
 	struct spigen_transfer transfer;
 	uint8_t foo;
+
+	/*
+	 * Note: data will be overwritten, can't be const.
+	 * If you need to keep the data intact - create copy
+	 */
 	transfer.st_command.iov_base = data;
 	transfer.st_command.iov_len = len;
 	transfer.st_data.iov_base = NULL;
