@@ -32,10 +32,7 @@
 #include "ssd1306.h"
 
 /* My Raspberry Pi setup */
-#define	SPIDEV	"/dev/spigen0"
-#define	GPIOC	0
-#define	PIN_DC	23
-#define	PIN_RST	24
+#define	IICDEV "/dev/iic0"
 #define	MODEL	SSD1306_MODEL_128X32
 
 void usage(const char *prog)
@@ -95,7 +92,7 @@ main(int argc, char **argv)
 	if (argc > 1)
 		msg2 = argv[1];
 
-	ssd1306 = ssd1306_open(SPIDEV, MODEL, GPIOC, PIN_RST, GPIOC, PIN_DC, flags);
+	ssd1306 = ssd1306_open(IICDEV, MODEL, 0x3C, flags);
 	if (ssd1306 == SSD1306_INVALID_HANDLE) {
 		fprintf(stderr, "failed to create SSD1306 handle\n");
 		return (1);

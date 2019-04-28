@@ -27,13 +27,16 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <libgpio.h>
 #include <string.h>
-#include <sys/spigenio.h>
+#include <errno.h>
+#include <stdio.h>
+#include <dev/iicbus/iic.h>
 
 #include "font.h"
 #include "ssd1306.h"
 
+#define SSD1306_CMD		0x00
+#define SSD1306_DATA		0x40
 #define	SSD1306_SETCONTRAST	0x81
 #define	SSD1306_DISPLAYALLON_RESUME	0xA4
 #define	SSD1306_DISPLAYALLON	0xA5
@@ -63,13 +66,8 @@
 struct ssd1306_handle {
 	ssd1306_model	model;
 	int		flags;
-	int		spi_fd;
-	/* Reset pin */
-	gpio_handle_t	gpio_reset;
-	int		gpio_reset_pin;
-	/* Data/Command switch pin */
-	gpio_handle_t	gpio_dc;
-	int		gpio_dc_pin;
+	int		iic_fd;
+	uint8_t		iic_slave_adr;
 	int		width;
 	int		height;
 	/* Virtual screen, 1 byte per pixel */
@@ -82,60 +80,55 @@ struct ssd1306_handle {
 	ssd1306_vccstate vccstate;
 };
 
-int
-ssd1306_spi_transfer(ssd1306_handle_t h, uint8_t *data, int len)
-{
-	struct spigen_transfer transfer;
-	uint8_t foo;
-
-	/*
-	 * Note: data will be overwritten, can't be const.
-	 * If you need to keep the data intact - create copy
-	 */
-	transfer.st_command.iov_base = data;
-	transfer.st_command.iov_len = len;
-	transfer.st_data.iov_base = NULL;
-	transfer.st_data.iov_len = 0;
-	if (ioctl(h->spi_fd, SPIGENIOC_TRANSFER, &transfer) < 0)
-		return (-1);
-
-	return (0);
-}
-
 static int
 ssd1306_command(ssd1306_handle_t h, uint8_t cmd)
 {
-	if (gpio_pin_low(h->gpio_dc, h->gpio_dc_pin))
-		return (-1);
-	if (ssd1306_spi_transfer(h, &cmd, 1))
-		return (-1);
+	uint8_t buf[] = { SSD1306_CMD, cmd };
+	struct iic_msg msg[1];
+	struct iic_rdwr_data rdwr;
 
-	return (0);
+	msg[0].slave = h->iic_slave_adr << 1;
+	msg[0].flags = IIC_M_WR;
+	msg[0].len = sizeof(buf);
+	msg[0].buf = buf;
+
+	rdwr.nmsgs = 1;
+	rdwr.msgs = msg;
+
+	if (ioctl(h->iic_fd, I2CRDWR, &rdwr) < 0) {
+		perror("ioctl(I2CRDWR) failed");
+		return (-1);
+	}
+	else return 0;
 }
 
 static int
 ssd1306_data(ssd1306_handle_t h, uint8_t *data, int len)
 {
-	if (gpio_pin_high(h->gpio_dc, h->gpio_dc_pin))
-		return (-1);
-	if (ssd1306_spi_transfer(h, data, len))
-		return (-1);
+	struct iic_msg msg[2];
+	struct iic_rdwr_data rdwr;
 
-	return (0);
+	uint8_t buf[len+1];
+	buf[0] = SSD1306_DATA;
+	memcpy(&buf[1], data, len);
+	msg[0].slave = h->iic_slave_adr << 1;
+	msg[0].flags = IIC_M_WR;
+	msg[0].len = len+1;
+	msg[0].buf = buf;
+
+	rdwr.nmsgs = 1;
+	rdwr.msgs = msg;
+
+	if (ioctl(h->iic_fd, I2CRDWR, &rdwr) < 0) {
+		perror("ioctl(I2CRDWR) failed");
+		return (-1);
+	}
+	else return 0;
 }
 
 static int
 ssd1306_reset(ssd1306_handle_t h)
 {
-	if (gpio_pin_high(h->gpio_reset, h->gpio_reset_pin))
-		return (-1);
-	usleep(999);
-	if (gpio_pin_low(h->gpio_reset, h->gpio_reset_pin))
-		return (-1);
-	usleep(10000);
-	if (gpio_pin_high(h->gpio_reset, h->gpio_reset_pin))
-		return (-1);
-
 	return (0);
 }
 
@@ -324,13 +317,14 @@ ssd1306_putstr(ssd1306_handle_t h, int x, int y, const char *s)
 }
 
 ssd1306_handle_t
-ssd1306_open(const char *spiodev, ssd1306_model model, int gpio_reset_unit,
-    int gpio_reset_pin, int gpio_dc_unit, int gpio_dc_pin, int flags)
+ssd1306_open(const char *iicdev, ssd1306_model model, uint8_t slave_address, int flags)
 {
 	ssd1306_handle_t h;
 	h = malloc(sizeof *h);
-	if (h == NULL)
+	if (h == NULL) {
+		printf("Malloc failed\n");
 		return (SSD1306_INVALID_HANDLE);
+	}
 
 	switch (model) {
 	case SSD1306_MODEL_128X32:
@@ -340,6 +334,7 @@ ssd1306_open(const char *spiodev, ssd1306_model model, int gpio_reset_unit,
 	case SSD1306_MODEL_96X16: /* not supported yet */
 	case SSD1306_MODEL_128X64: /* not supported yet */
 	default:
+		printf("Device not supported\n");
 		free(h);
 		return (SSD1306_INVALID_HANDLE);
 	}
@@ -349,43 +344,14 @@ ssd1306_open(const char *spiodev, ssd1306_model model, int gpio_reset_unit,
 	h->font = SSD1306_FONT_16;
 	h->flags = flags;
 
-	h->spi_fd = open(spiodev, O_RDWR);
-	if (h->spi_fd < 0) {
+	h->iic_fd = open(iicdev, O_RDWR);
+	if (h->iic_fd < 0) {
 		free(h);
+		perror("Could not open device\n");
 		return (SSD1306_INVALID_HANDLE);
 	}
 
-	h->gpio_reset = gpio_open(gpio_reset_unit);
-	h->gpio_reset_pin = gpio_reset_pin;
-	if (h->gpio_reset == GPIO_INVALID_HANDLE) {
-		free(h);
-		close(h->spi_fd);
-		return (SSD1306_INVALID_HANDLE);
-	}
-
-	if (gpio_pin_output(h->gpio_reset, gpio_reset_pin)) {
-		close(h->spi_fd);
-		gpio_close(h->gpio_reset);
-		free(h);
-		return (SSD1306_INVALID_HANDLE);
-	}
-
-	h->gpio_dc = gpio_open(gpio_dc_unit);
-	h->gpio_dc_pin = gpio_dc_pin;
-	if (h->gpio_dc == GPIO_INVALID_HANDLE) {
-		close(h->spi_fd);
-		gpio_close(h->gpio_reset);
-		free(h);
-		return (SSD1306_INVALID_HANDLE);
-	}
-
-	if (gpio_pin_output(h->gpio_dc, gpio_dc_pin)) {
-		close(h->spi_fd);
-		gpio_close(h->gpio_dc);
-		gpio_close(h->gpio_reset);
-		free(h);
-		return (SSD1306_INVALID_HANDLE);
-	}
+	h->iic_slave_adr = slave_address;
 
 	h->screen_size = h->width * h->height;
 	h->scratch_size = h->width * h->height / 8;
@@ -401,9 +367,7 @@ ssd1306_close(ssd1306_handle_t h)
 
 	free(h->screen);
 	free(h->scratch);
-	close(h->spi_fd);
-	gpio_close(h->gpio_reset);
-	gpio_close(h->gpio_dc);
+	close(h->iic_fd);
 	free(h);
 }
 
@@ -417,7 +381,9 @@ ssd1306_initialize(ssd1306_handle_t h)
 	case SSD1306_MODEL_96X16: /* not supported yet */
 	case SSD1306_MODEL_128X64: /* not supported yet */
 	default:
+		printf("LCD model not supported\n");
 		return (-1);
 	}
 	return (0);
 }
+

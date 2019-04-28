@@ -50,8 +50,7 @@ typedef enum {
 
 typedef struct ssd1306_handle* ssd1306_handle_t;
 
-ssd1306_handle_t ssd1306_open(const char *spiodev, ssd1306_model model, int gpio_reset_unit,
-    int gpio_reset_pin, int gpio_dc_unit, int gpio_dc_pin, int flags);
+ssd1306_handle_t ssd1306_open(const char *spiodev, ssd1306_model model, uint8_t slave_address, int flags);
 void ssd1306_close(ssd1306_handle_t);
 int ssd1306_initialize(ssd1306_handle_t h);
 int ssd1306_on(ssd1306_handle_t h);
