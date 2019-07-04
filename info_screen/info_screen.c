@@ -32,8 +32,8 @@
 #include <string.h>
 #include <time.h>
 #include <limits.h>
+#include <errno.h>
 #include "ssd1306.h"
-#include "tmp102.h"
 
 /* My Raspberry Pi setup */
 #define	IICDEV "/dev/iic0"
@@ -42,13 +42,11 @@
 void usage(const char *prog)
 {
 	fprintf(stderr, "%s: [-f /dev/iicN] [-a addr]\n", prog);
-	fprintf(stderr, "\t-a addr\t\tTMP102 address (default 0x48)\n");
-	fprintf(stderr, "\t-f /dev/iicN\t\tI2C bus (default iic0)\n");
 	fprintf(stderr, "\t-F\t\tshow temperature in Fahreheits\n");
 }
 
 void
-paint_information_screen(ssd1306_handle_t h, int panoffset, int amb, int cpu, int fahrenheit)
+paint_information_screen(ssd1306_handle_t h, int panoffset, int amb, int cpu )
 {
 	int width, height;
 	int font_width, font_height;
@@ -57,30 +55,19 @@ paint_information_screen(ssd1306_handle_t h, int panoffset, int amb, int cpu, in
 	time_t current_time = time (NULL);
 	struct tm* local_time = localtime (&current_time);
 	char scale;
-	int has_cpu, has_amb;
+	int has_cpu;
 
-	if (amb != INT_MIN)
-		has_amb = 1;
 	if (cpu != INT_MIN)
 		has_cpu = 1;
 
-	if (fahrenheit) {
-		amb = amb * 9 / 5 + 32;
-		cpu = cpu * 9 / 5 + 32;
-		scale = 'F';
-	}
-	else
-		scale = 'C';
+    cpu = cpu-273;
+    scale = 'C';
 
 	ssd1306_clear(h);
 	width = ssd1306_width(h);
 	height = ssd1306_height(h);
 	font_width = ssd1306_font_width(h);
 	font_height = ssd1306_font_height(h);
-	if (has_amb)
-		snprintf(str, sizeof(str), "AMB: %.1f%c%c", amb/1000., '\xf8', scale);
-	else
-		snprintf(str, sizeof(str), "AMB: N/A");
 
 	x = (width - strlen(str) * font_width) / 2;
 	y = (height - font_height) / 2;
@@ -88,7 +75,7 @@ paint_information_screen(ssd1306_handle_t h, int panoffset, int amb, int cpu, in
 	ssd1306_putstr(h, x, y, str);
 
 	if (has_cpu)
-		snprintf(str, sizeof(str), "CPU: %.1f%c%c", cpu/1000., '\xf8', scale);
+		snprintf(str, sizeof(str), "CPU: %d%c%c", cpu, '\xf8', scale);
 	else
 		snprintf(str, sizeof(str), "CPU: N/A");
 	x = (width - strlen(str) * font_width) / 2;
@@ -109,28 +96,21 @@ main(int argc, char **argv)
 {
 	int ch;
 	const char *prog;
-	const char *i2c;
 	int addr;
 	int fahrenheit = 0;
 	char scale;
 	int cpu_temp, amb_temp;
 	int flags;
 	int skip;
-	size_t oldlen;
-	tmp102_handle_t tmp102;
+	size_t oldlen = sizeof(cpu_temp);
 	ssd1306_handle_t ssd1306;
 
 	prog = argv[0];
-	i2c = "/dev/iic0";
-	addr = TMP102_DEFAULT_ADDR;
 	flags = 0;
 	skip = 0;
 
-	while ((ch = getopt(argc, argv, "a:f:Firs")) != -1) {
+	while ((ch = getopt(argc, argv, "a:Firs")) != -1) {
 		switch (ch) {
-		case 'f':
-			i2c = optarg;
-			break;
 		case 'a':
 			addr = strtol(optarg, NULL, 0);
 			break;
@@ -156,13 +136,6 @@ main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	tmp102 = tmp102_open(i2c, addr);
-	if (tmp102 == TMP102_INVALID_HANDLE) {
-		fprintf(stderr, "Failed to open TMP102\n");
-		return (1);
-	}
-
-
 	ssd1306 = ssd1306_open(IICDEV, MODEL, 0x3C, flags);
 	if (ssd1306 == SSD1306_INVALID_HANDLE) {
 		fprintf(stderr, "failed to create SSD1306 handle\n");
@@ -184,19 +157,18 @@ main(int argc, char **argv)
 	fahrenheit = 0;
 	while (1) {
 		if (pan == 0) {
-			if (tmp102_read_temp(tmp102, &amb_temp))
-				amb_temp = INT_MIN;
-			/* Specific to RPi */
-			oldlen = sizeof(int);
-			if (sysctlbyname("hw.cpufreq.temperature", &cpu_temp, &oldlen, NULL, 0))
+			if (sysctlbyname("dev.aw_thermal.0.cpu", &cpu_temp, &oldlen, NULL, 0))
+            {
+                printf("Failed to read cpu_temp: %s\n", strerror(errno) );
 				cpu_temp = INT_MIN;
+            } else printf("cpu_temp: %d \n", cpu_temp );
 		}
 
-		paint_information_screen(ssd1306, pan, amb_temp, cpu_temp, fahrenheit);
+		paint_information_screen(ssd1306, pan, amb_temp, cpu_temp);
 		sleep(2);
 		for (int i = 0; i < ssd1306_height(ssd1306); i++) {
 			pan += dir;
-			paint_information_screen(ssd1306, pan, amb_temp, cpu_temp, fahrenheit);
+			paint_information_screen(ssd1306, pan, amb_temp, cpu_temp);
 			usleep(20000);
 		}
 
