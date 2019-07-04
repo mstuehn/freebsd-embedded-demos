@@ -7,3 +7,5 @@
 info_screen
 ssd1306_message
 ssd1306_progress
+*o
+compile_commands.json
