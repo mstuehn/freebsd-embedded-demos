@@ -1,6 +1,6 @@
 PROG=		inky_demo
 
-LDADD=		-lgpio
+LDADD=
 MAN=
 
 .include <bsd.prog.mk>
