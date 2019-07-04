@@ -1,0 +1,9 @@
+.depend
+*debug
+*full
+*.po
+*.a
+*.so
+info_screen
+ssd1306_message
+ssd1306_progress
