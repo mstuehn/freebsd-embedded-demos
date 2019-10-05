@@ -25,6 +25,7 @@
 
 #include <sys/types.h>
 #include <sys/sysctl.h>
+#include <sys/resource.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -46,22 +47,19 @@ void usage(const char *prog)
 }
 
 void
-paint_information_screen(ssd1306_handle_t h, int panoffset, int amb, int cpu )
+paint_information_screen(ssd1306_handle_t h, int panoffset, int amb, int cpu, struct loadavg* load )
 {
 	int width, height;
 	int font_width, font_height;
 	int x, y;
-	char str[16];
+	char str[16] = {0};
 	time_t current_time = time (NULL);
 	struct tm* local_time = localtime (&current_time);
-	char scale;
 	int has_cpu;
 
-	if (cpu != INT_MIN)
-		has_cpu = 1;
+	if (cpu != INT_MIN) has_cpu = 1;
 
-    cpu = cpu-273;
-    scale = 'C';
+	cpu = cpu-273;
 
 	ssd1306_clear(h);
 	width = ssd1306_width(h);
@@ -69,13 +67,17 @@ paint_information_screen(ssd1306_handle_t h, int panoffset, int amb, int cpu )
 	font_width = ssd1306_font_width(h);
 	font_height = ssd1306_font_height(h);
 
+	snprintf(str, sizeof(str), "%0.2f/%0.2f/%0.2f", 
+			(double)load->ldavg[0]/load->fscale,
+			(double)load->ldavg[1]/load->fscale,
+			(double)load->ldavg[2]/load->fscale);
 	x = (width - strlen(str) * font_width) / 2;
 	y = (height - font_height) / 2;
 	y -= panoffset;
 	ssd1306_putstr(h, x, y, str);
 
 	if (has_cpu)
-		snprintf(str, sizeof(str), "CPU: %d%c%c", cpu, '\xf8', scale);
+		snprintf(str, sizeof(str), "CPU: %d%cC", cpu, '\xf8');
 	else
 		snprintf(str, sizeof(str), "CPU: N/A");
 	x = (width - strlen(str) * font_width) / 2;
@@ -149,26 +151,38 @@ main(int argc, char **argv)
 	}
 
 	ssd1306_clear(ssd1306);
+
 	ssd1306_refresh(ssd1306);
 	ssd1306_on(ssd1306);
 
 	int pan = 0;
 	int dir = 1;
-	fahrenheit = 0;
+	struct loadavg load;
+
 	while (1) {
 		if (pan == 0) {
 			if (sysctlbyname("dev.aw_thermal.0.cpu", &cpu_temp, &oldlen, NULL, 0))
-            {
-                printf("Failed to read cpu_temp: %s\n", strerror(errno) );
+			{
+				printf("Failed to read cpu_temp: %s\n", strerror(errno) );
 				cpu_temp = INT_MIN;
-            } else printf("cpu_temp: %d \n", cpu_temp );
+			} else printf("cpu_temp: %d \n", cpu_temp );
+
+			oldlen = sizeof(load);
+			if (sysctlbyname("vm.loadavg", &load, &oldlen, NULL, 0))
+			{
+				printf("Failed to read cpu_temp: %s\n", strerror(errno) );
+				cpu_temp = INT_MIN;
+			} else printf("loadavg: %0.4f/%0.4f/%0.4f\n", 
+				(double)load.ldavg[0]/load.fscale,
+				(double)load.ldavg[1]/load.fscale,
+				(double)load.ldavg[2]/load.fscale);
 		}
 
-		paint_information_screen(ssd1306, pan, amb_temp, cpu_temp);
+		paint_information_screen(ssd1306, pan, amb_temp, cpu_temp, &load);
 		sleep(2);
 		for (int i = 0; i < ssd1306_height(ssd1306); i++) {
 			pan += dir;
-			paint_information_screen(ssd1306, pan, amb_temp, cpu_temp);
+			paint_information_screen(ssd1306, pan, amb_temp, cpu_temp, &load);
 			usleep(20000);
 		}
 
