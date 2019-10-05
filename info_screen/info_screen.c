@@ -67,7 +67,7 @@ paint_information_screen(ssd1306_handle_t h, int panoffset, int amb, int cpu, st
 	font_width = ssd1306_font_width(h);
 	font_height = ssd1306_font_height(h);
 
-	snprintf(str, sizeof(str), "%0.2f/%0.2f/%0.2f", 
+	snprintf(str, sizeof(str), "%0.2f/%0.2f/%0.2f",
 			(double)load->ldavg[0]/load->fscale,
 			(double)load->ldavg[1]/load->fscale,
 			(double)load->ldavg[2]/load->fscale);
@@ -172,7 +172,7 @@ main(int argc, char **argv)
 			{
 				printf("Failed to read cpu_temp: %s\n", strerror(errno) );
 				cpu_temp = INT_MIN;
-			} else printf("loadavg: %0.4f/%0.4f/%0.4f\n", 
+			} else printf("loadavg: %0.4f/%0.4f/%0.4f\n",
 				(double)load.ldavg[0]/load.fscale,
 				(double)load.ldavg[1]/load.fscale,
 				(double)load.ldavg[2]/load.fscale);
