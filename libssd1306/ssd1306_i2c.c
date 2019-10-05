@@ -133,7 +133,7 @@ ssd1306_reset(ssd1306_handle_t h)
 }
 
 static void
-ssd1306_initialize_128x32(ssd1306_handle_t h)
+ssd1306_initialize_128x64(ssd1306_handle_t h)
 {
 	ssd1306_reset(h);
 
@@ -327,12 +327,13 @@ ssd1306_open(const char *iicdev, ssd1306_model model, uint8_t slave_address, int
 	}
 
 	switch (model) {
-	case SSD1306_MODEL_128X32:
-		h->width = 128;
-		h->height = 32;
-		break;
+	case SSD1306_MODEL_128X32:  /* not supported yet */
 	case SSD1306_MODEL_96X16: /* not supported yet */
-	case SSD1306_MODEL_128X64: /* not supported yet */
+        break;
+	case SSD1306_MODEL_128X64:
+		h->width = 128;
+		h->height = 64;
+		break;
 	default:
 		printf("Device not supported\n");
 		free(h);
@@ -375,11 +376,12 @@ int
 ssd1306_initialize(ssd1306_handle_t h)
 {
 	switch (h->model) {
-	case SSD1306_MODEL_128X32:
-		ssd1306_initialize_128x32(h);
-		break;
+	case SSD1306_MODEL_128X32:  /* not supported yet */
 	case SSD1306_MODEL_96X16: /* not supported yet */
-	case SSD1306_MODEL_128X64: /* not supported yet */
+		break;
+	case SSD1306_MODEL_128X64:
+		ssd1306_initialize_128x64(h);
+		break;
 	default:
 		printf("LCD model not supported\n");
 		return (-1);

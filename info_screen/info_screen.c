@@ -38,7 +38,7 @@
 
 /* My Raspberry Pi setup */
 #define	IICDEV "/dev/iic0"
-#define	MODEL	SSD1306_MODEL_128X32
+#define	MODEL	SSD1306_MODEL_128X64
 
 void usage(const char *prog)
 {
