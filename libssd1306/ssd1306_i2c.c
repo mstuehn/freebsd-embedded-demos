@@ -129,6 +129,8 @@ ssd1306_data(ssd1306_handle_t h, uint8_t *data, int len)
 static int
 ssd1306_reset(ssd1306_handle_t h)
 {
+	ssd1306_command(h, 0x2E); /* Stop scrolling */
+
 	return (0);
 }
 
@@ -216,6 +218,21 @@ ssd1306_refresh(ssd1306_handle_t h)
 	ssd1306_data(h, h->scratch, h->scratch_size);
 
 	return (0);
+}
+
+void
+ssd1306_scroll(ssd1306_handle_t h)
+{
+	ssd1306_command(h, 0x2E); /* Stop */
+
+	ssd1306_command(h, 0x29); /* configure */
+	ssd1306_command(h, 0x00); /* Dummy */
+	ssd1306_command(h, 0x00); /* from Page0 */
+	ssd1306_command(h, 0x00); /* 5frames */
+	ssd1306_command(h, 0x00); /* to Page7 */
+	ssd1306_command(h, 0x01); /* 0 rows ?*/
+
+	ssd1306_command(h, 0x2F); /* Start */
 }
 
 int
@@ -365,7 +382,6 @@ ssd1306_open(const char *iicdev, ssd1306_model model, uint8_t slave_address, int
 void
 ssd1306_close(ssd1306_handle_t h)
 {
-
 	free(h->screen);
 	free(h->scratch);
 	close(h->iic_fd);
