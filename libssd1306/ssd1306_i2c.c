@@ -141,7 +141,7 @@ ssd1306_initialize_128x64(ssd1306_handle_t h)
 	ssd1306_command(h, SSD1306_SETDISPLAYCLOCKDIV);
 	ssd1306_command(h, 0x80); /* the suggested ratio 0x80 */
 	ssd1306_command(h, SSD1306_SETMULTIPLEX);
-	ssd1306_command(h, 0x1F);
+	ssd1306_command(h, 0x3F);
 	ssd1306_command(h, SSD1306_SETDISPLAYOFFSET);
 	ssd1306_command(h, 0x0); /* no offset */
 	ssd1306_command(h, SSD1306_SETSTARTLINE | 0x0); /* line #0 */
@@ -155,7 +155,7 @@ ssd1306_initialize_128x64(ssd1306_handle_t h)
 	ssd1306_command(h, SSD1306_SEGREMAP | 0x1);
 	ssd1306_command(h, SSD1306_COMSCANDEC);
 	ssd1306_command(h, SSD1306_SETCOMPINS);
-	ssd1306_command(h, 0x02);
+	ssd1306_command(h, 0x12);
 	ssd1306_command(h, SSD1306_SETCONTRAST);
 	ssd1306_command(h, 0x8F);
 	ssd1306_command(h, SSD1306_SETPRECHARGE);
