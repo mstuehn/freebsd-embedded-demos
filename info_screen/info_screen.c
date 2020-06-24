@@ -180,8 +180,9 @@ main(int argc, char **argv)
 
 		paint_information_screen(ssd1306, pan, amb_temp, cpu_temp, &load);
 		sleep(2);
+
 		for (int i = 0; i < ssd1306_height(ssd1306); i++) {
-			pan += dir;
+			pan += dir*2;
 			paint_information_screen(ssd1306, pan, amb_temp, cpu_temp, &load);
 			usleep(20000);
 		}
@@ -189,7 +190,6 @@ main(int argc, char **argv)
 		if (pan >= 2*ssd1306_height(ssd1306)) {
 			pan = 2*ssd1306_height(ssd1306);
 			dir = -1;
-			fahrenheit = !fahrenheit;
 		}
 
 		if (pan <= 0) {

@@ -33,7 +33,7 @@
 
 /* My Raspberry Pi setup */
 #define	IICDEV "/dev/iic0"
-#define	MODEL	SSD1306_MODEL_128X32
+#define	MODEL	SSD1306_MODEL_128X64
 
 void usage(const char *prog)
 {
@@ -112,6 +112,19 @@ main(int argc, char **argv)
 	ssd1306_refresh(ssd1306);
 	ssd1306_on(ssd1306);
 
+	x=0; y=0;
+	for(x=0; x < width; x++) ssd1306_putpixel( ssd1306, x, y, 1 );
+	ssd1306_refresh(ssd1306);
+
+	x=0; y=0;
+	for(; y < height; y++){
+		ssd1306_putpixel( ssd1306, x, y, 1 );
+		if( y % 10 == 0 ) ssd1306_putpixel( ssd1306, x+1, y, 1 );
+		ssd1306_refresh(ssd1306);
+		//usleep(500000);
+	}
+
+#if 0
 	y = (height - font_height * 2) / 2;
 	x = (width - strlen(msg) * font_width) / 2;
 
@@ -125,6 +138,7 @@ main(int argc, char **argv)
 		ssd1306_refresh(ssd1306);
 		usleep(500000);
 	}
+#endif
 
 	ssd1306_close(ssd1306);
 	return (0);

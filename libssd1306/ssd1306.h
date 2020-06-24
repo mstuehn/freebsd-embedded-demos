@@ -64,5 +64,6 @@ void ssd1306_clear(ssd1306_handle_t h);
 void ssd1306_putpixel(ssd1306_handle_t h, int x, int y, int v);
 void ssd1306_putchar(ssd1306_handle_t h, int x, int y, unsigned char);
 void ssd1306_putstr(ssd1306_handle_t h, int x, int y, const char *s);
+void ssd1306_scroll(ssd1306_handle_t h);
 
 #endif /* __SSD1306_H__ */
